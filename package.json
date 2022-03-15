@@ -6,10 +6,19 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "generate": "mesh build",
+    "mesh": "mesh dev"
   },
   "dependencies": {
-    "next": "12.1.0",
+    "@graphql-mesh/cli": "^0.60.0",
+    "@graphql-mesh/graphql": "^0.21.3",
+    "@graphql-mesh/openapi": "^0.23.21",
+    "@graphql-mesh/transform-prefix": "^0.11.16",
+    "graphql": "15.7.2",
+    "graphql-request": "3.6.1",
+    "moment": "^2.29.1",
+    "next": "12.0.3-canary.1",
     "react": "17.0.2",
     "react-dom": "17.0.2"
   },

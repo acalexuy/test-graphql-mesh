@@ -1,0 +1,14 @@
+documents:
+  - ./graphql/**/*.{gql,graphql}
+
+sources:
+  - name: Wiki
+    handler:
+      openapi:
+        source: https://api.apis.guru/v2/specs/wikimedia.org/1.0.0/swagger.yaml
+additionalTypeDefs: |
+  extend type Query {
+    viewsInPastMonth(project: String!, editorType: EditorType16!, granularity: Granularity21!, pageType: PageType13! ): NewPages
+  }
+additionalResolvers:
+  - ./mesh/resolvers.ts

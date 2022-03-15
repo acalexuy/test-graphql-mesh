@@ -1,0 +1,15 @@
+query getNewsPage {
+  viewsInPastMonth(
+    editorType: ALL_EDITOR_TYPES
+    granularity: DAILY
+    pageType: ALL_PAGE_TYPES
+    project: "en.wikipedia.org"
+  ) {
+    items {
+      editorType
+      granularity
+      pageType
+      project
+    }
+  }
+}
