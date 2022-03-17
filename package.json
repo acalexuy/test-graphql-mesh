@@ -11,10 +11,10 @@
     "mesh": "mesh dev"
   },
   "dependencies": {
-    "@graphql-mesh/cli": "^0.60.0",
-    "@graphql-mesh/graphql": "^0.21.3",
-    "@graphql-mesh/openapi": "^0.23.21",
-    "@graphql-mesh/transform-prefix": "^0.11.16",
+    "@graphql-mesh/cli": "^0.62.1",
+    "@graphql-mesh/graphql": "^0.22.1",
+    "@graphql-mesh/openapi": "^0.23.26",
+    "@graphql-mesh/transform-prefix": "^0.11.21",
     "graphql": "15.7.2",
     "graphql-request": "3.6.1",
     "moment": "^2.29.1",

@@ -1,0 +1,20 @@
+query getNewsPage {
+  newPages(
+    editorType: ALL_EDITOR_TYPES
+    end: "1970010100"
+    granularity: DAILY
+    pageType: ALL_PAGE_TYPES
+    project: "en.wikipedia.org"
+    start: "1970010100"
+  ) {
+    items {
+      ...newspageFragment
+    }
+  }
+}
+
+fragment newspageFragment on Items6ListItem {
+  editorType
+  granularity
+  pageType
+}

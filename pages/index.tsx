@@ -71,15 +71,15 @@ const Home: NextPage = () => {
 };
 
 export const getStaticProps: GetStaticProps = async ({ params }) => {
-  const { getNewsPage } = await getMeshSDK();
+  const { getNewsPage } = await getMeshSDK(0);
 
-  const { viewsInPastMonth } = await getNewsPage();
+  const { newPages } = await getNewsPage();
 
-  console.log("viewsInPastMonth", viewsInPastMonth);
+  console.log("newPages", newPages);
 
   return {
     props: {
-      viewsInPastMonth,
+      newPages,
     },
     revalidate: 60,
   };

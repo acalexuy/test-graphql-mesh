@@ -1,10 +1,8 @@
 // @ts-nocheck
 import { GraphQLResolveInfo, GraphQLScalarType, GraphQLScalarTypeConfig } from 'graphql';
 import { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-node/core';
-import { GraphQLSchema, ExecutionResult } from 'graphql';
-import { DocumentNode } from 'graphql';
-import { compileQuery, isCompiledQuery, CompilerOptions } from 'graphql-jit';
-import { AggregateError, isAsyncIterable, mapAsyncIterator } from '@graphql-tools/utils';
+import { gql } from '@graphql-mesh/utils';
+
 export type Maybe<T> = T | null;
 export type InputMaybe<T> = Maybe<T>;
 export type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] };
@@ -3878,7 +3876,7 @@ import { fileURLToPath } from '@graphql-mesh/utils';
 import ExternalModule_0 from '@graphql-mesh/cache-inmemory-lru';
 import ExternalModule_1 from '@graphql-mesh/openapi';
 import ExternalModule_2 from '@graphql-mesh/merger-bare';
-import ExternalModule_3 from './sources/Wiki/oas-schema.ts';
+import ExternalModule_3 from './sources/Wiki/oas-schema';
 
 const importedModules: Record<string, any> = {
   // @ts-ignore
@@ -3888,7 +3886,7 @@ const importedModules: Record<string, any> = {
   // @ts-ignore
   ["@graphql-mesh/merger-bare"]: ExternalModule_2,
   // @ts-ignore
-  [".mesh/sources/Wiki/oas-schema.ts"]: ExternalModule_3
+  [".mesh/sources/Wiki/oas-schema"]: ExternalModule_3
 };
 
 const baseDir = pathModule.join(pathModule.dirname(fileURLToPath(import.meta.url)), '..');
@@ -3912,21 +3910,23 @@ const rootStore = new MeshStore('.mesh', new FsStoreStorageAdapter({
 import { GetMeshOptions } from '@graphql-mesh/runtime';
 import { YamlConfig } from '@graphql-mesh/types';
 import { parse } from 'graphql';
-import MeshCache from '@graphql-mesh/cache-inmemory-lru';
 import { PubSub } from '@graphql-mesh/utils';
+import MeshCache from '@graphql-mesh/cache-inmemory-lru';
 import { DefaultLogger } from '@graphql-mesh/utils';
 import OpenapiHandler from '@graphql-mesh/openapi'
 import BareMerger from '@graphql-mesh/merger-bare';
 import { resolveAdditionalResolvers } from '@graphql-mesh/utils';
 import * as additionalResolvers$0 from '../mesh/resolvers.ts';
+import { parseWithCache } from '@graphql-mesh/utils';
 export const rawConfig: YamlConfig.Config = {"documents":["./graphql/**/*.{gql,graphql}"],"sources":[{"name":"Wiki","handler":{"openapi":{"source":"https://api.apis.guru/v2/specs/wikimedia.org/1.0.0/swagger.yaml"}}}],"additionalTypeDefs":"extend type Query {\n  viewsInPastMonth(project: String!, editorType: EditorType16!, granularity: Granularity21!, pageType: PageType13! ): NewPages\n}\n","additionalResolvers":["./mesh/resolvers.ts"]} as any
 export async function getMeshOptions(): Promise<GetMeshOptions> {
+const pubsub = new PubSub();
 const cache = new (MeshCache as any)({
       ...(rawConfig.cache || {}),
       importFn,
       store: rootStore.child('cache'),
+      pubsub,
     } as any)
-const pubsub = new PubSub();
 const sourcesStore = rootStore.child('sources');
 const logger = new DefaultLogger('🕸️');
 const sources = [];
@@ -3947,7 +3947,7 @@ sources.push({
           handler: wikiHandler,
           transforms: wikiTransforms
         })
-const additionalTypeDefs: DocumentNode[] = [parse("extend type Query {\n  viewsInPastMonth(project: String!, editorType: EditorType16!, granularity: Granularity21!, pageType: PageType13!): NewPages\n}\n"),] as any[];
+const additionalTypeDefs = [parse("extend type Query {\n  viewsInPastMonth(project: String!, editorType: EditorType16!, granularity: Granularity21!, pageType: PageType13!): NewPages\n}\n"),] as any[];
 const merger = new(BareMerger as any)({
         cache,
         pubsub,
@@ -3964,6 +3964,11 @@ const additionalResolvers = await resolveAdditionalResolvers(
   )
 const liveQueryInvalidations = rawConfig.liveQueryInvalidations;
 const additionalEnvelopPlugins = [];
+const documents = documentsInSDL.map((documentSdl: string, i: number) => ({
+              rawSDL: documentSdl,
+              document: parseWithCache(documentSdl),
+              location: `document_${i}.graphql`,
+            }))
 
   return {
     sources,
@@ -3976,23 +3981,29 @@ const additionalEnvelopPlugins = [];
     logger,
     liveQueryInvalidations,
     additionalEnvelopPlugins,
+    documents,
   };
 }
 
 export const documentsInSDL = /*#__PURE__*/ [/* GraphQL */`query getNewsPage {
-  viewsInPastMonth(
+  newPages(
     editorType: ALL_EDITOR_TYPES
+    end: "1970010100"
     granularity: DAILY
     pageType: ALL_PAGE_TYPES
     project: "en.wikipedia.org"
+    start: "1970010100"
   ) {
     items {
-      editorType
-      granularity
-      pageType
-      project
+      ...newspageFragment
     }
   }
+}
+
+fragment newspageFragment on Items6ListItem {
+  editorType
+  granularity
+  pageType
 }`];
 
 export async function getBuiltMesh(): Promise<MeshInstance<MeshContext>> {
@@ -4000,48 +4011,50 @@ export async function getBuiltMesh(): Promise<MeshInstance<MeshContext>> {
   return getMesh<MeshContext>(meshConfig);
 }
 
-export async function getMeshSDK<TGlobalContext = any, TGlobalRoot = any, TOperationContext = any, TOperationRoot = any>(sdkOptions?: SdkOptions<TGlobalContext, TGlobalRoot>) {
-  const { schema } = await getBuiltMesh();
-  return getSdk<TGlobalContext, TGlobalRoot, TOperationContext, TOperationRoot>(schema, sdkOptions);
+export async function getMeshSDK<TGlobalContext = any, TOperationContext = any>(globalContext: TGlobalContext) {
+  const { execute, meshContext } = await getBuiltMesh();
+  return getSdk<TOperationContext>((document, variables, context) => execute(document, variables, ({
+    ...context,
+    ...meshContext,
+  })));
 }
 export type getNewsPageQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type getNewsPageQuery = { viewsInPastMonth?: Maybe<{ items?: Maybe<Array<Maybe<Pick<Items6ListItem, 'editorType' | 'granularity' | 'pageType' | 'project'>>>> }> };
+export type getNewsPageQuery = { newPages?: Maybe<{ items?: Maybe<Array<Maybe<Pick<Items6ListItem, 'editorType' | 'granularity' | 'pageType'>>>> }> };
 
+export type newspageFragmentFragment = Pick<Items6ListItem, 'editorType' | 'granularity' | 'pageType'>;
 
-export const getNewsPageDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"getNewsPage"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"viewsInPastMonth"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"editorType"},"value":{"kind":"EnumValue","value":"ALL_EDITOR_TYPES"}},{"kind":"Argument","name":{"kind":"Name","value":"granularity"},"value":{"kind":"EnumValue","value":"DAILY"}},{"kind":"Argument","name":{"kind":"Name","value":"pageType"},"value":{"kind":"EnumValue","value":"ALL_PAGE_TYPES"}},{"kind":"Argument","name":{"kind":"Name","value":"project"},"value":{"kind":"StringValue","value":"en.wikipedia.org","block":false}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"editorType"}},{"kind":"Field","name":{"kind":"Name","value":"granularity"}},{"kind":"Field","name":{"kind":"Name","value":"pageType"}},{"kind":"Field","name":{"kind":"Name","value":"project"}}]}}]}}]}}]} as unknown as DocumentNode<getNewsPageQuery, getNewsPageQueryVariables>;
-
-
-function handleExecutionResult<T>(result: ExecutionResult, operationName: string) {
-  if (result.errors) {
-    const originalErrors = result.errors.map(error => error.originalError|| error);
-    throw new AggregateError(originalErrors, `Failed to execute ${operationName}: \n\t${originalErrors.join('\n\t')}`);
-  }
-  return result.data as unknown as T;
+export const newspageFragmentFragmentDoc = gql`
+    fragment newspageFragment on Items6ListItem {
+  editorType
+  granularity
+  pageType
 }
-export interface SdkOptions<TGlobalContext = any, TGlobalRoot = any> {
-  globalContext?: TGlobalContext;
-  globalRoot?: TGlobalRoot;
-  jitOptions?: Partial<CompilerOptions>;
-}
-export function getSdk<TGlobalContext = any, TGlobalRoot = any, TOperationContext = any, TOperationRoot = any>(schema: GraphQLSchema, { globalContext, globalRoot, jitOptions = {} }: SdkOptions<TGlobalContext, TGlobalRoot> = {}) {
-    const getNewsPageCompiled = compileQuery(schema, getNewsPageDocument, 'getNewsPage', jitOptions);
-    if(!(isCompiledQuery(getNewsPageCompiled))) {
-      const originalErrors = getNewsPageCompiled?.errors?.map(error => error.originalError || error) || [];
-      throw new AggregateError(originalErrors, `Failed to compile getNewsPage: \n\t${originalErrors.join('\n\t')}`);
+    ` as unknown as DocumentNode<newspageFragmentFragment, unknown>;
+export const getNewsPageDocument = gql`
+    query getNewsPage {
+  newPages(
+    editorType: ALL_EDITOR_TYPES
+    end: "1970010100"
+    granularity: DAILY
+    pageType: ALL_PAGE_TYPES
+    project: "en.wikipedia.org"
+    start: "1970010100"
+  ) {
+    items {
+      ...newspageFragment
     }
+  }
+}
+    ${newspageFragmentFragmentDoc}` as unknown as DocumentNode<getNewsPageQuery, getNewsPageQueryVariables>;
 
+
+export type Requester<C= {}> = <R, V>(doc: DocumentNode, vars?: V, options?: C) => Promise<R>
+export function getSdk<C>(requester: Requester<C>) {
   return {
-    async getNewsPage(variables?: getNewsPageQueryVariables, context?: TOperationContext, root?: TOperationRoot): Promise<getNewsPageQuery> {
-      const result = await getNewsPageCompiled.query({
-        ...globalRoot,
-        ...root
-      }, {
-        ...globalContext,
-        ...context
-      }, variables);
-      return handleExecutionResult(result, 'getNewsPage');
+    getNewsPage(variables?: getNewsPageQueryVariables, options?: C): Promise<getNewsPageQuery> {
+      return requester<getNewsPageQuery, getNewsPageQueryVariables>(getNewsPageDocument, variables, options);
     }
   };
 }
